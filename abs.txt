@@ -117,3 +117,69 @@ public class SalesAnalysis {
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }
+
+Test 3:
+import java.io.IOException;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class SalesAnalysis {
+
+    // Mapper Class
+    public static class CountryMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+        private Text country = new Text();
+        private final static IntWritable one = new IntWritable(1);
+
+        @Override
+        protected void map(LongWritable key, Text line, Context context) throws IOException, InterruptedException {
+            String[] fields = line.toString().split(","); // Phân tách dữ liệu bằng dấu phẩy
+            if (fields.length > 7) { // Đảm bảo rằng có đủ trường
+                country.set(fields[7]); // Trường thứ 7 là quốc gia
+                context.write(country, one); // Gửi ra cặp key-value
+            }
+        }
+    }
+
+    // Reducer Class
+    public static class CountryReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+        private IntWritable totalSales = new IntWritable();
+
+        @Override
+        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get(); // Tính tổng số lượng giao dịch
+            }
+            totalSales.set(sum);
+            context.write(key, totalSales); // Gửi ra cặp key-value mới
+        }
+    }
+
+    // Driver Class
+    public static void main(String[] args) throws Exception {
+        if (args.length != 2) {
+            System.err.println("Usage: SalesAnalysis <input path> <output path>");
+            System.exit(-1);
+        }
+
+        Job job = Job.getInstance();
+        job.setJarByClass(SalesAnalysis.class);
+        job.setJobName("Sales Analysis");
+
+        job.setMapperClass(CountryMapper.class);
+        job.setReducerClass(CountryReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.setInputPaths(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
