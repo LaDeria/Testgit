@@ -1,71 +1,71 @@
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
+import java.io.IOException;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-import java.io.IOException;
+public class BT1_2121051553 {
+    
+    // Mapper class
+    public static class ElectricityMapper extends Mapper<Object, Text, Text, IntWritable> {
 
-public class SalesDataAnalysis {
+        private Text year = new Text();
+        private IntWritable avgConsumption = new IntWritable();
 
-    public static class SalesMapper extends Mapper<Object, Text, Text, IntWritable> {
-        private final static IntWritable one = new IntWritable(1);
-        private Text country = new Text();
+        public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            // Split the input line into an array of strings
+            String[] fields = value.toString().split("\\s+");
 
-        @Override
-        protected void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-            // In ra dòng đang xử lý
-            System.out.println("Processing line: " + value.toString());
-            
-            String[] fields = value.toString().split(",");
-            if (fields.length > 6) {
-                String countryName = fields[6].trim();
-                country.set(countryName);
-                context.write(country, one);
-            }
-        }
-    }
+            // Extract year and calculate average consumption
+            String yearString = fields[0];
+            year.set(yearString);
 
-    public static class SalesReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        private IntWritable result = new IntWritable();
-
-        @Override
-        protected void reduce(Text key, Iterable<IntWritable> values, Context context)
-                throws IOException, InterruptedException {
             int sum = 0;
-            for (IntWritable val : values) {
-                sum += val.get();
+            int months = 12; // there are 12 months in each row
+
+            for (int i = 1; i <= months; i++) {
+                sum += Integer.parseInt(fields[i]);
             }
-            result.set(sum);
-            context.write(key, result);
+            int avg = sum / months;
+            avgConsumption.set(avg);
+
+            // Write year and average consumption as key-value
+            context.write(year, avgConsumption);
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.err.println("Usage: SalesDataAnalysis <input path> <output path>");
-            System.exit(-1);
+    // Reducer class
+    public static class ElectricityReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+
+        public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            for (IntWritable value : values) {
+                if (value.get() > 30) { // Filter years with average consumption > 30
+                    context.write(key, value);
+                }
+            }
         }
+    }
 
+    // Main method
+    public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "Sales Data Analysis");
+        Job job = Job.getInstance(conf, "Electricity Consumption Filter");
 
-        job.setJarByClass(SalesDataAnalysis.class);
-        job.setMapperClass(SalesMapper.class);
-        job.setReducerClass(SalesReducer.class);
+        job.setJarByClass(BT1_2121051553.class);
+        job.setMapperClass(ElectricityMapper.class);
+        job.setReducerClass(ElectricityReducer.class);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
 
-        // Đọc đường dẫn đầu vào và đầu ra từ tham số
-        FileInputFormat.addInputPath(job, new Path(args[0])); // Đường dẫn đến SalesJan2009.csv
-        FileOutputFormat.setOutputPath(job, new Path(args[1])); // Thư mục đầu ra
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
-        // Chạy job và thoát
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }
