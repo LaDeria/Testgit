@@ -4,7 +4,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapred.*;
 
-public class BT1 {
+public class BT1_2121050691 {
 	public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, Text, IntWritable> {
 		public void map(LongWritable key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
 			String[] splittedValues = value.toString().split("\\s+");
@@ -26,8 +26,8 @@ public class BT1 {
 	}
 
 	public static void main(String[] args) throws Exception {
-		JobConf conf = new JobConf(BT1.class);
-		conf.setJobName("BT1");
+		JobConf conf = new JobConf(BT1_2121050691.class);
+		conf.setJobName("BT1_2121050691");
 		conf.setOutputKeyClass(Text.class);
 		conf.setOutputValueClass(IntWritable.class);
 		conf.setMapperClass(Map.class);
