@@ -1,53 +1,4 @@
 import java.io.IOException;
-import java.util.*;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.*;
-import org.apache.hadoop.mapred.*;
-
-public class BT1 {
-	public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, Text, IntWritable> {
-		public void map(LongWritable key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
-			String[] splittedValues = value.toString().split("\\s+");
-			String currentYear = splittedValues[0];
-			Text year = new Text(currentYear);
-			output.collect(year, new IntWritable(Integer.parseInt(splittedValues[splittedValues.length - 1])));
-		}
-	}
-
-	public static class Reduce extends MapReduceBase implements Reducer<Text, IntWritable, Text, IntWritable> {
-		public void reduce(Text key, Iterator<IntWritable> values, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
-			while (values.hasNext()) {
-				int current = values.next().get(); 
-				if (current >= 30) {				
-					output.collect(key, new IntWritable(current));
-				}
-			}
-		}
-	}
-
-	public static void main(String[] args) throws Exception {
-		JobConf conf = new JobConf(BT1.class);
-		conf.setJobName("BT1");
-		conf.setOutputKeyClass(Text.class);
-		conf.setOutputValueClass(IntWritable.class);
-		conf.setMapperClass(Map.class);
-		conf.setCombinerClass(Reduce.class);
-		conf.setReducerClass(Reduce.class);
-		conf.setInputFormat(TextInputFormat.class);
-		conf.setOutputFormat(TextOutputFormat.class);
-		FileInputFormat.setInputPaths(conf, new Path("/home/cloudera/sample.txt"));
-		FileOutputFormat.setOutputPath(conf, new Path("/home/cloudera/out"));
-//		FileInputFormat.setInputPaths(conf, new Path(args[0]));
-//		FileOutputFormat.setOutputPath(conf, new Path(args[1]));
-		JobClient.runJob(conf);
-	}
-}
-
-
-
-Test2: 
-
-import java.io.IOException;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Job;
@@ -56,126 +7,71 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-public class SalesAnalysis {
+public class ElectricityConsumptionAnalysis {
 
-    public static class YearMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+    // Mapper Class
+    public static class YearMapper extends Mapper<LongWritable, Text, Text, DoubleWritable> {
         private Text year = new Text();
-        private IntWritable value = new IntWritable();
+        private DoubleWritable consumption = new DoubleWritable();
 
         @Override
         protected void map(LongWritable key, Text line, Context context) throws IOException, InterruptedException {
-            String[] fields = line.toString().split("\\s+");
+            String[] fields = line.toString().split("\\s+"); // Phân tách dữ liệu bằng khoảng trắng
             if (fields.length > 1) {
                 year.set(fields[0]); // Lấy năm từ trường đầu tiên
                 try {
-                    value.set(Integer.parseInt(fields[fields.length - 1])); // Lấy giá trị từ trường cuối cùng
-                    context.write(year, value);
+                    // Lấy mức tiêu thụ điện từ các trường thứ hai đến cuối
+                    for (int i = 1; i < fields.length; i++) {
+                        consumption.set(Double.parseDouble(fields[i]));
+                        // Gửi ra cặp key-value nếu mức tiêu thụ lớn hơn 30
+                        if (consumption.get() > 30) {
+                            context.write(year, consumption);
+                        }
+                    }
                 } catch (NumberFormatException e) {
                     // Xử lý lỗi nếu không thể chuyển đổi giá trị
-                    System.err.println("Error parsing value: " + fields[fields.length - 1]);
+                    System.err.println("Error parsing consumption value: " + fields[i]);
                 }
             }
         }
     }
 
-    public static class TransactionReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        private IntWritable totalValue = new IntWritable();
-
+    // Reducer Class
+    public static class ConsumptionReducer extends Reducer<Text, DoubleWritable, Text, DoubleWritable> {
         @Override
-        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            int sum = 0;
-            for (IntWritable val : values) {
-                sum += val.get();
+        protected void reduce(Text key, Iterable<DoubleWritable> values, Context context) throws IOException, InterruptedException {
+            double maxConsumption = Double.NEGATIVE_INFINITY; // Khởi tạo giá trị tối thiểu
+
+            for (DoubleWritable val : values) {
+                // Tìm giá trị lớn nhất cho mỗi năm
+                if (val.get() > maxConsumption) {
+                    maxConsumption = val.get();
+                }
             }
-            if (sum >= 30) { // Chỉ xuất ra nếu tổng lớn hơn hoặc bằng 30
-                totalValue.set(sum);
-                context.write(key, totalValue);
+
+            // Chỉ xuất ra nếu giá trị lớn hơn 30
+            if (maxConsumption > 30) {
+                context.write(key, new DoubleWritable(maxConsumption)); // Xuất cặp key-value
             }
         }
     }
 
+    // Main Class
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
-            System.err.println("Usage: SalesAnalysis <input path> <output path>");
+            System.err.println("Usage: ElectricityConsumptionAnalysis <input path> <output path>");
             System.exit(-1);
         }
 
         Job job = Job.getInstance();
-        job.setJarByClass(SalesAnalysis.class);
-        job.setJobName("Sales Analysis");
+        job.setJarByClass(ElectricityConsumptionAnalysis.class);
+        job.setJobName("Electricity Consumption Analysis");
 
         job.setMapperClass(YearMapper.class);
-        job.setReducerClass(TransactionReducer.class);
-        job.setCombinerClass(TransactionReducer.class); // Sử dụng reducer làm combiner
+        job.setReducerClass(ConsumptionReducer.class);
 
         job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
-
-        FileInputFormat.setInputPaths(job, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job, new Path(args[1]));
-
-        System.exit(job.waitForCompletion(true) ? 0 : 1);
-    }
-}
-
-Test 3:
-import java.io.IOException;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.*;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-
-public class SalesAnalysis {
-
-    // Mapper Class
-    public static class CountryMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
-        private Text country = new Text();
-        private final static IntWritable one = new IntWritable(1);
-
-        @Override
-        protected void map(LongWritable key, Text line, Context context) throws IOException, InterruptedException {
-            String[] fields = line.toString().split(","); // Phân tách dữ liệu bằng dấu phẩy
-            if (fields.length > 7) { // Đảm bảo rằng có đủ trường
-                country.set(fields[7]); // Trường thứ 7 là quốc gia
-                context.write(country, one); // Gửi ra cặp key-value
-            }
-        }
-    }
-
-    // Reducer Class
-    public static class CountryReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        private IntWritable totalSales = new IntWritable();
-
-        @Override
-        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            int sum = 0;
-            for (IntWritable val : values) {
-                sum += val.get(); // Tính tổng số lượng giao dịch
-            }
-            totalSales.set(sum);
-            context.write(key, totalSales); // Gửi ra cặp key-value mới
-        }
-    }
-
-    // Driver Class
-    public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.err.println("Usage: SalesAnalysis <input path> <output path>");
-            System.exit(-1);
-        }
-
-        Job job = Job.getInstance();
-        job.setJarByClass(SalesAnalysis.class);
-        job.setJobName("Sales Analysis");
-
-        job.setMapperClass(CountryMapper.class);
-        job.setReducerClass(CountryReducer.class);
-
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
+        job.setOutputValueClass(DoubleWritable.class);
 
         FileInputFormat.setInputPaths(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
