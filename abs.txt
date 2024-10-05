@@ -1,81 +1,63 @@
 import java.io.IOException;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapred.*;
 
-public class ElectricityConsumptionAnalysis {
+public class BT1 {
 
-    // Mapper Class
-    public static class YearMapper extends Mapper<LongWritable, Text, Text, DoubleWritable> {
-        private Text year = new Text();
-        private DoubleWritable consumption = new DoubleWritable();
+    public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, Text, IntWritable> {
+        public void map(LongWritable key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+            String[] splittedValues = value.toString().split("\\s+");
+            String currentYear = splittedValues[0];
 
-        @Override
-        protected void map(LongWritable key, Text line, Context context) throws IOException, InterruptedException {
-            String[] fields = line.toString().split("\\s+"); // Phân tách dữ liệu bằng khoảng trắng
-            if (fields.length > 1) {
-                year.set(fields[0]); // Lấy năm từ trường đầu tiên
-                try {
-                    // Lấy mức tiêu thụ điện từ các trường thứ hai đến cuối
-                    for (int i = 1; i < fields.length; i++) {
-                        consumption.set(Double.parseDouble(fields[i]));
-                        // Gửi ra cặp key-value nếu mức tiêu thụ lớn hơn 30
-                        if (consumption.get() > 30) {
-                            context.write(year, consumption);
-                        }
-                    }
-                } catch (NumberFormatException e) {
-                    // Xử lý lỗi nếu không thể chuyển đổi giá trị
-                    System.err.println("Error parsing consumption value: " + fields[i]);
-                }
+            // Chỉ lấy các giá trị tiêu thụ điện từ trường thứ hai đến cuối
+            for (int i = 1; i < splittedValues.length; i++) {
+                int consumption = Integer.parseInt(splittedValues[i]);
+                output.collect(new Text(currentYear), new IntWritable(consumption));
             }
         }
     }
 
-    // Reducer Class
-    public static class ConsumptionReducer extends Reducer<Text, DoubleWritable, Text, DoubleWritable> {
-        @Override
-        protected void reduce(Text key, Iterable<DoubleWritable> values, Context context) throws IOException, InterruptedException {
-            double maxConsumption = Double.NEGATIVE_INFINITY; // Khởi tạo giá trị tối thiểu
+    public static class Reduce extends MapReduceBase implements Reducer<Text, IntWritable, Text, IntWritable> {
+        public void reduce(Text key, Iterator<IntWritable> values, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+            int maxConsumption = Integer.MIN_VALUE;
 
-            for (DoubleWritable val : values) {
-                // Tìm giá trị lớn nhất cho mỗi năm
-                if (val.get() > maxConsumption) {
-                    maxConsumption = val.get();
+            // Tìm giá trị lớn nhất cho mỗi năm
+            while (values.hasNext()) {
+                int current = values.next().get();
+                if (current > maxConsumption) {
+                    maxConsumption = current;
                 }
             }
 
-            // Chỉ xuất ra nếu giá trị lớn hơn 30
-            if (maxConsumption > 30) {
-                context.write(key, new DoubleWritable(maxConsumption)); // Xuất cặp key-value
+            // Chỉ xuất ra nếu giá trị lớn hơn hoặc bằng 30
+            if (maxConsumption >= 30) {
+                output.collect(key, new IntWritable(maxConsumption));
             }
         }
     }
 
-    // Main Class
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
-            System.err.println("Usage: ElectricityConsumptionAnalysis <input path> <output path>");
+            System.err.println("Usage: BT1 <input path> <output path>");
             System.exit(-1);
         }
 
-        Job job = Job.getInstance();
-        job.setJarByClass(ElectricityConsumptionAnalysis.class);
-        job.setJobName("Electricity Consumption Analysis");
+        JobConf conf = new JobConf(BT1.class);
+        conf.setJobName("BT1");
+        conf.setOutputKeyClass(Text.class);
+        conf.setOutputValueClass(IntWritable.class);
+        conf.setMapperClass(Map.class);
+        conf.setCombinerClass(Reduce.class);
+        conf.setReducerClass(Reduce.class);
+        conf.setInputFormat(TextInputFormat.class);
+        conf.setOutputFormat(TextOutputFormat.class);
 
-        job.setMapperClass(YearMapper.class);
-        job.setReducerClass(ConsumptionReducer.class);
+        // Thiết lập đường dẫn đầu vào và đầu ra từ tham số dòng lệnh
+        FileInputFormat.setInputPaths(conf, new Path(args[0]));
+        FileOutputFormat.setOutputPath(conf, new Path(args[1]));
 
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(DoubleWritable.class);
-
-        FileInputFormat.setInputPaths(job, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job, new Path(args[1]));
-
-        System.exit(job.waitForCompletion(true) ? 0 : 1);
+        // Chạy job
+        JobClient.runJob(conf);
     }
 }
