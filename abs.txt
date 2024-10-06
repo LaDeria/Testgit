@@ -1,84 +1,54 @@
-import java.io.IOException;
-import java.util.Iterator;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.*;
-import org.apache.hadoop.mapred.*;
-
-public class BT1_2121050691 {
-    public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, Text, IntWritable> {
-        public void map(LongWritable key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
-            String[] splittedValues = value.toString().split("\\s+");
-            String currentYear = splittedValues[0];
-            Text year = new Text(currentYear);
-            output.collect(year, new IntWritable(Integer.parseInt(splittedValues[splittedValues.length - 1])));
-        }
-    }
-
-    public static class Reduce extends MapReduceBase implements Reducer<Text, IntWritable, Text, IntWritable> {
-        public void reduce(Text key, Iterator<IntWritable> values, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
-            while (values.hasNext()) {
-                int current = values.next().get(); 
-                if (current >= 30) {                
-                    output.collect(key, new IntWritable(current));
-                }
-            }
-        }
-    }
-
-    public static void main(String[] args) throws Exception {
-        JobConf conf = new JobConf(BT1_2121050691.class);
-
-
-
-
-
-Test 3 : 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import java.io.IOException;
 
-// Lớp chính
-public class BT2_2121050691 {
+public class SalesMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+    private final static IntWritable one = new IntWritable(1);
+    private Text country = new Text();
 
-    public static class SalesMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
-        private final static IntWritable one = new IntWritable(1);
-        private Text country = new Text();
-
-        @Override
-        protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            String line = value.toString();
-            String[] fields = line.split(",");
-
-            if (fields.length > 7) { // Đảm bảo có đủ trường
-                country.set(fields[7]); // Giả sử trường thứ 8 là 'Country'
-                context.write(country, one); // Gửi cặp key-value
-            }
-        }
-    }
-
-    public static class SalesReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        @Override
-        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            int count = 0;
-            for (IntWritable val : values) {
-                count += val.get(); // Tính tổng số lần xuất hiện
-            }
-            context.write(key, new IntWritable(count)); // Xuất ra cặp key-value
+    @Override
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        String line = value.toString();
+        String[] fields = line.split(",");
+        
+        if (fields.length > 7) { // Ensure there are enough fields
+            country.set(fields[7]); // Country is in the 8th column (index 7)
+            context.write(country, one);
         }
     }
 }
 
-// Lớp Driver
-public class SalesDriver {
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+
+import java.io.IOException;
+
+public class SalesReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+
+    @Override
+    protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+        int sum = 0;
+        for (IntWritable val : values) {
+            sum += val.get();
+        }
+        context.write(key, new IntWritable(sum));
+    }
+}
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class BT2_2121050691 {
+
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.err.println("Usage: BT2_2121050691 <input path> <output path>");
@@ -86,154 +56,19 @@ public class SalesDriver {
         }
 
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "Sales Count");
-
+        Job job = Job.getInstance(conf, "Sales Count by Country");
+        
         job.setJarByClass(BT2_2121050691.class);
+        
         job.setMapperClass(SalesMapper.class);
         job.setReducerClass(SalesReducer.class);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
 
-        FileInputFormat.addInputPath(job, new Path(args[0])); // Đường dẫn tệp đầu vào
-        FileOutputFormat.setOutputPath(job, new Path(args[1])); // Đường dẫn tệp đầu ra
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
         System.exit(job.waitForCompletion(true) ? 0 : 1);
-    }
-}
-Test 2:
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-
-import java.io.IOException;
-
-public class BT2_2121050691 {
-
-    public static class SalesMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
-        private final static IntWritable one = new IntWritable(1);
-        private Text country = new Text();
-
-        @Override
-        protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            String line = value.toString();
-            String[] fields = line.split(",");
-
-            if (fields.length > 7) { // Đảm bảo có đủ trường
-                country.set(fields[7]); // Giả sử trường thứ 8 là 'Country'
-                context.write(country, one); // Gửi cặp key-value
-            }
-        }
-    }
-
-    public static class SalesReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        @Override
-        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            int count = 0;
-            for (IntWritable val : values) {
-                count += val.get(); // Tính tổng số lần xuất hiện
-            }
-            context.write(key, new IntWritable(count)); // Xuất ra cặp key-value
-        }
-    }
-
-    public static class SalesDriver {
-        public static void main(String[] args) throws Exception {
-            if (args.length != 2) {
-                System.err.println("Usage: BT2_2121050691 <input path> <output path>");
-                System.exit(-1);
-            }
-
-            Configuration conf = new Configuration();
-            Job job = Job.getInstance(conf, "Sales Count");
-
-            job.setJarByClass(BT2_2121050691.class);
-            job.setMapperClass(SalesMapper.class);
-            job.setReducerClass(SalesReducer.class);
-
-            job.setOutputKeyClass(Text.class);
-            job.setOutputValueClass(IntWritable.class);
-
-            FileInputFormat.addInputPath(job, new Path(args[0])); // Đường dẫn tệp đầu vào
-            FileOutputFormat.setOutputPath(job, new Path(args[1])); // Đường dẫn tệp đầu ra
-
-            System.exit(job.waitForCompletion(true) ? 0 : 1);
-        }
-    }
-}
-
-
-Test 4:
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-
-import java.io.IOException;
-
-public class BT2_2121050691 {
-
-    public static class SalesMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
-        private final static IntWritable one = new IntWritable(1);
-        private Text country = new Text();
-
-        @Override
-        protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            String line = value.toString();
-            String[] fields = line.split(",");
-
-            if (fields.length > 7) { // Đảm bảo có đủ trường
-                country.set(fields[7]); // Giả sử trường thứ 8 là 'Country'
-                context.write(country, one); // Gửi cặp key-value
-            }
-        }
-    }
-
-    public static class SalesReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-        @Override
-        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            int count = 0;
-            for (IntWritable val : values) {
-                count += val.get(); // Tính tổng số lần xuất hiện
-            }
-            context.write(key, new IntWritable(count)); // Xuất ra cặp key-value
-        }
-    }
-
-    public static class SalesDriver {
-        public static void main(String[] args) throws Exception {
-            if (args.length != 2) {
-                System.err.println("Usage: BT2_2121050691 <input path> <output path>");
-                System.exit(-1);
-            }
-
-            Configuration conf = new Configuration();
-            Job job = Job.getInstance(conf, "Sales Count");
-
-            job.setJarByClass(BT2_2121050691.class);
-            job.setMapperClass(SalesMapper.class);
-            job.setReducerClass(SalesReducer.class);
-
-            job.setOutputKeyClass(Text.class);
-            job.setOutputValueClass(IntWritable.class);
-
-            FileInputFormat.addInputPath(job, new Path(args[0])); // Đường dẫn tệp đầu vào
-            FileOutputFormat.setOutputPath(job, new Path(args[1])); // Đường dẫn tệp đầu ra
-
-            System.exit(job.waitForCompletion(true) ? 0 : 1);
-        }
     }
 }
