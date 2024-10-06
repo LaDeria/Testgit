@@ -55,7 +55,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import java.io.IOException;
 
-public class SalesAnalysis {
+public class BT2_2121050691 {
 
     public static class SalesMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
         private final static IntWritable one = new IntWritable(1);
@@ -87,14 +87,14 @@ public class SalesAnalysis {
     public static class SalesDriver {
         public static void main(String[] args) throws Exception {
             if (args.length != 2) {
-                System.err.println("Usage: SalesDriver <input path> <output path>");
+                System.err.println("Usage: BT2_2121050691 <input path> <output path>");
                 System.exit(-1);
             }
 
             Configuration conf = new Configuration();
             Job job = Job.getInstance(conf, "Sales Count");
 
-            job.setJarByClass(SalesDriver.class);
+            job.setJarByClass(BT2_2121050691.class);
             job.setMapperClass(SalesMapper.class);
             job.setReducerClass(SalesReducer.class);
 
