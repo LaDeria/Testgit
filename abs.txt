@@ -27,6 +27,80 @@ public class BT1_2121050691 {
 
     public static void main(String[] args) throws Exception {
         JobConf conf = new JobConf(BT1_2121050691.class);
+
+
+
+
+
+Test 3 : 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+import java.io.IOException;
+
+// Lớp chính
+public class BT2_2121050691 {
+
+    public static class SalesMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+        private final static IntWritable one = new IntWritable(1);
+        private Text country = new Text();
+
+        @Override
+        protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            String line = value.toString();
+            String[] fields = line.split(",");
+
+            if (fields.length > 7) { // Đảm bảo có đủ trường
+                country.set(fields[7]); // Giả sử trường thứ 8 là 'Country'
+                context.write(country, one); // Gửi cặp key-value
+            }
+        }
+    }
+
+    public static class SalesReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+        @Override
+        protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            int count = 0;
+            for (IntWritable val : values) {
+                count += val.get(); // Tính tổng số lần xuất hiện
+            }
+            context.write(key, new IntWritable(count)); // Xuất ra cặp key-value
+        }
+    }
+}
+
+// Lớp Driver
+public class SalesDriver {
+    public static void main(String[] args) throws Exception {
+        if (args.length != 2) {
+            System.err.println("Usage: BT2_2121050691 <input path> <output path>");
+            System.exit(-1);
+        }
+
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "Sales Count");
+
+        job.setJarByClass(BT2_2121050691.class);
+        job.setMapperClass(BT2_2121050691.SalesMapper.class);
+        job.setReducerClass(BT2_2121050691.SalesReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.addInputPath(job, new Path(args[0])); // Đường dẫn tệp đầu vào
+        FileOutputFormat.setOutputPath(job, new Path(args[1])); // Đường dẫn tệp đầu ra
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
         conf.setJobName("BT1_2121050691");
         conf.setOutputKeyClass(Text.class);
         conf.setOutputValueClass(IntWritable.class);
