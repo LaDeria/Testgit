@@ -1,73 +1,74 @@
+import java.io.IOException;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
-
-import java.io.IOException;
-
-public class SalesMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
-    private final static IntWritable one = new IntWritable(1);
-    private Text country = new Text();
-
-    @Override
-    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-        String line = value.toString();
-        String[] fields = line.split(",");
-        
-        if (fields.length > 7) { // Ensure there are enough fields
-            country.set(fields[7]); // Country is in the 8th column (index 7)
-            context.write(country, one);
-        }
-    }
-}
-
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
-
-import java.io.IOException;
-
-public class SalesReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-
-    @Override
-    protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-        int sum = 0;
-        for (IntWritable val : values) {
-            sum += val.get();
-        }
-        context.write(key, new IntWritable(sum));
-    }
-}
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 public class BT2_2121050691 {
 
-    public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.err.println("Usage: BT2_2121050691 <input path> <output path>");
-            System.exit(-1);
-        }
+    // Mapper class
+    public static class SalesMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+        
+        private Text country = new Text();
+        private final static IntWritable one = new IntWritable(1);
 
+        @Override
+        protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+            // Bỏ qua dòng tiêu đề
+            if (key.get() == 0 && value.toString().contains("Transaction_date")) {
+                return;
+            }
+
+            // Tách từng dòng dựa trên dấu phẩy
+            String[] fields = value.toString().split(",");
+
+            // Lấy quốc gia từ cột thứ 7
+            if (fields.length > 7) {
+                country.set(fields[7]);  // Cột thứ 7 là quốc gia
+                context.write(country, one);  // Ghi ra key là quốc gia, value là 1
+            }
+        }
+    }
+
+    // Reducer class
+    public static class SalesReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+
+        @Override
+        protected void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+            int count = 0;
+
+            // Duyệt qua các giá trị và đếm số lượng
+            for (IntWritable value : values) {
+                count += value.get();
+            }
+
+            // Ghi ra key là quốc gia, value là tổng số giao dịch bán hàng
+            context.write(key, new IntWritable(count));
+        }
+    }
+
+    // Driver class
+    public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "Sales Count by Country");
-        
+        Job job = Job.getInstance(conf, "Sales Count By Country");
+
         job.setJarByClass(BT2_2121050691.class);
-        
         job.setMapperClass(SalesMapper.class);
+        job.setCombinerClass(SalesReducer.class);  // Optional: Dùng Combiner để tối ưu
         job.setReducerClass(SalesReducer.class);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
 
-        FileInputFormat.addInputPath(job, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        FileInputFormat.addInputPath(job, new Path(args[0])); // Đường dẫn file input
+        FileOutputFormat.setOutputPath(job, new Path(args[1])); // Đường dẫn file output
 
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
