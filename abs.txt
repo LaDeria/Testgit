@@ -89,8 +89,8 @@ public class SalesDriver {
         Job job = Job.getInstance(conf, "Sales Count");
 
         job.setJarByClass(BT2_2121050691.class);
-        job.setMapperClass(BT2_2121050691.SalesMapper.class);
-        job.setReducerClass(BT2_2121050691.SalesReducer.class);
+        job.setMapperClass(SalesMapper.class);
+        job.setReducerClass(SalesReducer.class);
 
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
@@ -99,20 +99,6 @@ public class SalesDriver {
         FileOutputFormat.setOutputPath(job, new Path(args[1])); // Đường dẫn tệp đầu ra
 
         System.exit(job.waitForCompletion(true) ? 0 : 1);
-    }
-}
-        conf.setJobName("BT1_2121050691");
-        conf.setOutputKeyClass(Text.class);
-        conf.setOutputValueClass(IntWritable.class);
-        conf.setMapperClass(Map.class);
-        conf.setCombinerClass(Reduce.class);
-        conf.setReducerClass(Reduce.class);
-        conf.setInputFormat(TextInputFormat.class);
-        conf.setOutputFormat(TextOutputFormat.class);
-        
-        FileInputFormat.setInputPaths(conf, new Path(args[0]));
-        FileOutputFormat.setOutputPath(conf, new Path(args[1]));
-        JobClient.runJob(conf);
     }
 }
 Test 2:
