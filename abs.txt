@@ -1,1 +1,2 @@
 wget https://github.com/mongodb/mongo-hadoop/releases/download/r2.0.2/mongo-hadoop-2.0.2.tar.gz
+wget --no-check-certificate https://github.com/mongodb/mongo-hadoop/releases/download/r2.0.2/mongo-hadoop-2.0.2.tar.gz
