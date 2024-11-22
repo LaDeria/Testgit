@@ -29,3 +29,6 @@ mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo
 gpgcheck=1
 enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
+
+wget https://repo1.maven.org/maven2/org/mongodb/mongo-hadoop/mongo-hadoop-core/1.5.1/mongo-hadoop-core-1.5.1.jar
+wget https://repo1.maven.org/maven2/org/mongodb/mongo-java-driver/2.13.3/mongo-java-driver-2.13.3.jar
