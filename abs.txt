@@ -1,3 +1,51 @@
+file :core.site.xml
+<configuration>
+<property>
+<name>hadoop.tmp.dir</name>
+<value>/home/laderia/Downloads/hadoop-3.4.0</value>
+</property>
+<property>
+<name>fs.default.name</name>
+<value>hdfs://localhost:9000</value>
+</property>
+</configuration>
+
+
+file : mapred:
+<configuration>
+<property>
+  <name>mapreduce.framework.name</name>
+  <value>yarn</value>
+</property>
+</configuration>
+
+file : hdfs 
+<configuration>
+<property>
+<name>dfs.replicattion</name>
+<value>1</value>
+</property>
+<property>
+<name>dfs.namenode.name.dir</name>
+<value>/home/laderia/Downloads/hadoop-3.4.0/data/namenode</value>
+</property>
+<property>
+<name>dfs.datanode.data.dir</name>
+<value>home/laderia/Downloads/hadoop-3.4.0/data/namenode</value>
+</property>
+</configuration>
+
+
+
+
+
+
+
+
+
+
+
+file : yarn.site.xml
 <property>
     <name>yarn.nodemanager.aux-services</name>
     <value>mapreduce_shuffle</value>
